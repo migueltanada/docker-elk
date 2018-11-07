@@ -1,0 +1,62 @@
+version: '3'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.3.2
+    container_name: elasticsearch
+    environment:
+      - "discovery.type=single-node"
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:6.3.2
+    container_name: logstash
+    volumes:
+      - ./logstash/config:/usr/share/logstash/config/ 
+      - ./logstash/pipeline:/usr/share/logstash/pipeline/
+    ports:
+      - 5000:5000
+      - 25826:25826
+    networks:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.3.2
+    container_name: kibana
+    environment:
+      - "ELASTICSEARCH_URL=http://elasticsearch:9200"
+    ports:
+      - 5601:5601
+    networks:
+      - elk
+     
+  tomcat:
+    container_name: tomcat
+    image: tomcat:7.0
+    ports:
+      - 8080:8080
+    networks:
+      - elk 
+    depends_on:
+      - kibana
+      - elasticsearch
+      - logstash
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://:5000"
+        tag: tomcat
+
+volumes:
+  esdata:
+    driver: local
+
+networks:
+  elk:
